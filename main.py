@@ -1,5 +1,4 @@
-
-
+###Please change any '_' in cv2_imshow if I forgotten it to chnage, as this code is generated from google colab
 from IPython import get_ipython
 get_ipython().magic('reset -sf')
 import numpy as np
@@ -8,11 +7,12 @@ from google.colab.patches import cv2_imshow
 from matplotlib import pyplot as plt
 
 
-input_image = cv2.imread('/content/Road_image2.jpg')
+input_image = cv2.imread('/content/Road_image2.jpg') ###Path of your image
 
-cv2_imshow(input_image)
+cv2.imshow(input_image)
 
 ######RGB to Gray Conversion
+
 def rgb2gray(img):
   r = img[:,:,0]
   g = img[:,:,1]
@@ -21,16 +21,14 @@ def rgb2gray(img):
   return  gray_image
 gray = rgb2gray(input_image)   
 
-cv2_imshow(gray)
+cv2.imshow(gray)
 
-###Sobel Filter
+###Applying Sobel Filter for edge detection
 def sobel_filter(gray_input):
   Fx = np.array([[1,0,-1],[2,0,-2],[1,0,-1]])
   Fy = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
   [rows,coulmns] = gray_input.shape
   filtered = np.zeros_like(gray_input)
-
-#filtered_image.shape
 
   for i in range(rows-2):
     for j in range(coulmns-2):
@@ -41,6 +39,9 @@ def sobel_filter(gray_input):
 
 filtered_image = sobel_filter(gray)
 [rows,coulmns] = filtered_image.shape
+
+#####Thresholding to get rid of noisy edges
+
 for i in range(rows):
   for j in range(coulmns):
     if filtered_image[i,j]<200:
@@ -48,7 +49,7 @@ for i in range(rows):
 filtered_image = filtered_image.astype(int)
 cv2_imshow(filtered_image)
 
-#Hough Transform
+#Applying Hough Transform on the detected edges to get the hough lines
 
 def hough_transform(input):
   # selection of Rho and Theta ranges 
@@ -79,14 +80,16 @@ def hough_transform(input):
 
   return accumulator, Thetas, rhos 
 acc, T, r = hough_transform(filtered_image)
-#accumulator.shape
-#cv2_imshow(accumulator)
+
+####Ploting hough lines
 
 plt.imshow(acc,cmap='gray',extent=[np.rad2deg(T[-1]),np.rad2deg(T[0]),r[-1],r[0]])
 plt.title('Hough Transfor')
 plt.xlabel('Angle in degrees',labelpad=1)
 plt.ylabel('rho')
 plt.axis('auto')
+
+###uncomment following lines of code if you want to plot the hough peaks on hough lines
 #for i in range(len(row)):
   #x,y = indices[i]
   #rho = r[x]
@@ -94,6 +97,8 @@ plt.axis('auto')
   #plt.plot(theta,rho,'o',20)
 
 plt.show()
+
+#####getting strongest peaks to draw lines on image
 
 x = acc
 m,n = x.shape
@@ -104,6 +109,8 @@ for i in range(m):
 row,coulmn = np.nonzero(x)
 indices  = np.vstack((row,coulmn)).T
 
+#seperating rho theta based on indexes of strong peaks above
+
 rhovec = []
 thetavec = []
 for i in range(len(indices)):        
@@ -112,13 +119,18 @@ for i in range(len(indices)):
   rhovec.append(rho)
   theta = T[y]
   thetavec.append(np.rad2deg(theta))
+
+#removing repeated theta values and corresponding rhos. This will reduce the number of lines on original image
+
 thetaF = []
 rhoF = []
 for i in range(len(thetavec)):
   if thetavec[i] not in thetaF:
     thetaF.append(thetavec[i])
     rhoF.append(rhovec[i])
-####neglecting few lines based on angle theta
+
+
+####neglecting closer lines based on angle theta
 x = 0
 for k in range(len(thetaF)):
   x += 1
@@ -132,7 +144,11 @@ rhoF = np.array(rhoF)
 rhoF = rhoF[rhoF!=0]
 thetaF = np.array(thetaF)
 thetaF = thetaF[thetaF!=0]
-#L = np.empty([5, 1], dtype=int)    
+
+#L = np.empty([5, 1], dtype=int)
+
+#This part will draw lines over the original image   
+ 
 for i in range(len(thetaF)):
   theta = thetaF[i]
   rho = rhoF[i]  
@@ -148,11 +164,11 @@ for i in range(len(thetaF)):
   
 
   cv2.line(input_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-cv2_imshow( input_image)
+cv2.imshow( input_image)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 
-#choose two angles corresponding to two lines given hieghest difference
+#For the vanishing points choose two lines which give heighest theta difference
 diff=[]
 theta=[]
 x=0
@@ -161,10 +177,7 @@ for i in range(len(thetaF)):
   for j in range(x,len(thetaF)):
     theta.append((thetaF[i],thetaF[j]))
     diff.append(abs(thetaF[i]-thetaF[j]))
-#print(diff)
-#print(theta)
 max_index = diff.index(max(diff))
-#print('max_index =', max_index)
 a = theta[max_index]
 theta1 = a[0]
 theta1_index=np.where(thetaF == theta1)
@@ -174,13 +187,13 @@ theta2=a[1]
 theta2_index=np.where(thetaF == theta2)
 theta2 =np.deg2rad(theta2)
 rho2 = rhoF[theta2_index]
+
+##Point of intersection calculation of the chosen two line. This will be the road vanishing point
+
 xintr = int((rho1*np.sin(theta2)-rho2*np.sin(theta1))/(np.cos(theta1)*np.sin(theta2)-np.sin(theta1)*np.cos(theta2)))
 yintr = int((rho2*np.cos(theta1)-rho1*np.cos(theta2))/(np.cos(theta1)*np.sin(theta2)-np.sin(theta1)*np.cos(theta2)))
-#print(xintr,yintr)
+
 cv2.circle(input_image, (xintr,yintr), radius=10, color=(0, 0, 255), thickness=2)
 cv2_imshow( input_image)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
-
-from google.colab import drive
-drive.mount('/content/drive')
